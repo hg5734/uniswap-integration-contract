@@ -12,20 +12,20 @@ import "@openzeppelin/contracts-ethereum-package/contracts/access/Ownable.sol";
 
 import "./interface/IUniswap.sol";
 import "./interface/IUniswapV2Pair.sol";
+import "./interface/IUniswapV2Factory.sol";
 
 contract UniswapV2Integration is OwnableUpgradeSafe {
     IUniswap public uniswap;
-    address public uniswapFactory;
+    IUniswapV2Factory public uniswapFactory;
 
     constructor(address _uniswap, address _uniswapFactory) public {
         uniswap = IUniswap(_uniswap);
-        uniswapFactory = _uniswapFactory;
+        uniswapFactory = IUniswapV2Factory(_uniswapFactory);
     }
 
     function swapTokensForEth(
         address token,
-        uint256 amountIn,
-        address pairFor
+        uint256 amountIn
     ) public {
         IERC20(token).transferFrom(msg.sender, address(this), amountIn);
         address[] memory path = new address[](2);
@@ -34,7 +34,7 @@ contract UniswapV2Integration is OwnableUpgradeSafe {
         IERC20(token).approve(address(uniswap), amountIn);
         (uint256 reserveA, uint256 reserveB, ) = pairInfo(
             path[0],
-            path[1],
+            uniswapFactory.getPair(path[0], path[1])[1],
             pairFor
         );
         uint256 amountOutMin = (reserveB / reserveA) * amountIn;
@@ -43,15 +43,14 @@ contract UniswapV2Integration is OwnableUpgradeSafe {
             amountOutMin,
             path,
             msg.sender,
-            block.timestamp
+            block.timestamp + 30
         );
     }
 
     function swapTokensForToken(
         address token,
         address tokenOut,
-        uint256 amountIn,
-        address pairFor
+        uint256 amountIn
     ) public {
         IERC20(token).transferFrom(msg.sender, address(this), amountIn);
         address[] memory path = new address[](2);
@@ -60,7 +59,7 @@ contract UniswapV2Integration is OwnableUpgradeSafe {
         (uint256 reserveA, uint256 reserveB, ) = pairInfo(
             path[0],
             path[1],
-            pairFor
+            uniswapFactory.getPair(path[0], path[1])
         );
         uint256 amountOutMin = (reserveB / reserveA) * amountIn;
         IERC20(token).approve(address(uniswap), amountIn);
@@ -69,31 +68,25 @@ contract UniswapV2Integration is OwnableUpgradeSafe {
             amountOutMin,
             path,
             msg.sender,
-            block.timestamp
+            block.timestamp + 30
         );
     }
 
-    function swapEthForToken(
-        address token,
-        uint256 amountIn,
-        address pairFor
-    ) public {
-        IERC20(token).transferFrom(msg.sender, address(this), amountIn);
+    function swapEthForToken(address token, uint256 amountIn) public {
         address[] memory path = new address[](2);
-        path[0] = address(token);
-        path[1] = uniswap.WETH();
-        IERC20(token).approve(address(uniswap), amountIn);
+        path[0] = uniswap.WETH();
+        path[1] = address(token);
         (uint256 reserveA, uint256 reserveB, ) = pairInfo(
             path[0],
             path[1],
-            pairFor
+            uniswapFactory.getPair(path[0], path[1])
         );
         uint256 amountOutMin = (reserveB / reserveA) * amountIn;
         uniswap.swapExactETHForTokens(
             amountOutMin,
             path,
             msg.sender,
-            block.timestamp
+            block.timestamp + 30
         );
     }
 
@@ -103,7 +96,7 @@ contract UniswapV2Integration is OwnableUpgradeSafe {
     {
         require(_factory != address(0), "Zero address for UNI factory");
         require(_routerV02 != address(0), "Zero address for UNI router02");
-        uniswapFactory = _factory;
+        uniswapFactory = IUniswapV2Factory(_factory);
         uniswap = IUniswap(_routerV02);
     }
 
@@ -128,5 +121,12 @@ contract UniswapV2Integration is OwnableUpgradeSafe {
             : (reserves1, reserves0);
         return (reserveA, reserveB, totalSupply);
     }
-    
+
+    function getTokenBalance(address _tokenContract, address _user)
+        external
+        view
+        returns (uint256)
+    {
+        return IERC20(_tokenContract).balanceOf(_user);
+    }
 }
