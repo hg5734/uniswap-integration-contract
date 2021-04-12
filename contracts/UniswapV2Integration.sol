@@ -23,10 +23,7 @@ contract UniswapV2Integration is OwnableUpgradeSafe {
         uniswapFactory = IUniswapV2Factory(_uniswapFactory);
     }
 
-    function swapTokensForEth(
-        address token,
-        uint256 amountIn
-    ) public {
+    function swapTokensForEth(address token, uint256 amountIn) public {
         IERC20(token).transferFrom(msg.sender, address(this), amountIn);
         address[] memory path = new address[](2);
         path[0] = token;
@@ -34,8 +31,8 @@ contract UniswapV2Integration is OwnableUpgradeSafe {
         IERC20(token).approve(address(uniswap), amountIn);
         (uint256 reserveA, uint256 reserveB, ) = pairInfo(
             path[0],
-            uniswapFactory.getPair(path[0], path[1])[1],
-            pairFor
+            path[1],
+            uniswapFactory.getPair(path[0], path[1])
         );
         uint256 amountOutMin = (reserveB / reserveA) * amountIn;
         uniswap.swapExactTokensForETH(
